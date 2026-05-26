@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
-import { Buffer } from 'node:buffer';
 import { webcrypto } from 'node:crypto';
 import { TextDecoder, TextEncoder } from 'node:util';
+import { toBase64, fromBase64 } from './signature-format';
 
 const PBKDF2_ITERATIONS = 100000;
 const MAX_PBKDF2_ITERATIONS = 600000;
@@ -13,12 +13,17 @@ const DECRYPT_FAILURE_MESSAGE = 'Invalid password or corrupted encrypted payload
 
 // Supported encryption payload versions
 const SUPPORTED_VERSIONS = [1] as const;
-type SupportedVersion = typeof SUPPORTED_VERSIONS[number];
+type SupportedVersion = (typeof SUPPORTED_VERSIONS)[number];
 
 // Error classes for better error handling
 export class UnsupportedVersionError extends Error {
-  constructor(public readonly detectedVersion: number, public readonly supportedVersions: readonly number[]) {
-    super(`Unsupported encryption payload version: ${detectedVersion}. Supported versions: [${supportedVersions.join(', ')}]`);
+  constructor(
+    public readonly detectedVersion: number,
+    public readonly supportedVersions: readonly number[]
+  ) {
+    super(
+      `Unsupported encryption payload version: ${detectedVersion}. Supported versions: [${supportedVersions.join(', ')}]`
+    );
     this.name = 'UnsupportedVersionError';
   }
 }
@@ -48,15 +53,6 @@ function getCrypto(): Crypto {
   }
 
   return globalThis.crypto;
-}
-
-function toBase64(bytes: ArrayBuffer | Uint8Array): string {
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  return Buffer.from(view).toString('base64');
-}
-
-function fromBase64(value: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(value, 'base64'));
 }
 
 async function deriveEncryptionKey(
@@ -175,7 +171,7 @@ export async function encryptSecretKey(
     iterations: PBKDF2_ITERATIONS,
     salt: toBase64(salt),
     iv: toBase64(iv),
-    ciphertext: toBase64(ciphertext),
+    ciphertext: toBase64(new Uint8Array(ciphertext)),
   };
 }
 
@@ -213,7 +209,7 @@ export async function decryptSecretKey(
     if (error instanceof UnsupportedVersionError || error instanceof InvalidPayloadError) {
       throw error;
     }
-    
+
     // Wrap other errors as generic decryption failure
     throw new InvalidPayloadError(DECRYPT_FAILURE_MESSAGE);
   }
