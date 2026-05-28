@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { validateTransferPolicy } from '@ancore/types';
 import type { JobQueue } from '../queue/JobQueue';
 import type { IdempotencyStore } from '../store/idempotency';
 import type {
@@ -69,6 +70,18 @@ export class RelayService implements RelayServiceContract {
         valid: false,
         error: { code: 'INVALID_SIGNATURE', message: 'Signature verification failed' },
       };
+    }
+
+    // Validate transfer policy if provided
+    if (request.transferPolicy) {
+      const { policy, amount, todayTotal } = request.transferPolicy;
+      const policyResult = validateTransferPolicy(amount, todayTotal, policy);
+      if (policyResult.action === 'block') {
+        return {
+          valid: false,
+          error: { code: 'TRANSFER_LIMIT_EXCEEDED', message: policyResult.message },
+        };
+      }
     }
 
     return { valid: true };

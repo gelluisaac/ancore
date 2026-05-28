@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Separator, cn } from '@ancore/ui-kit';
 import type { SendTransactionDraft } from '@/hooks/useSendTransaction';
 import { TransferNotePreview } from '@/components/TransferNotePreview';
-import { ShieldCheck, ArrowRight, Wallet, Globe, Info } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Wallet, Globe, Info, AlertCircle } from 'lucide-react';
 
 interface ReviewScreenProps {
   transaction: SendTransactionDraft;
@@ -71,6 +71,19 @@ export function ReviewScreen({ transaction, onBack, onConfirm }: ReviewScreenPro
 
         {/* Transfer Note */}
         {transaction.truncatedNote && <TransferNotePreview note={transaction.truncatedNote} />}
+
+        {/* Step-up Verification Warning */}
+        {transaction.policyAction === 'step_up' && transaction.policyMessage && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="block text-[11px] uppercase tracking-widest text-amber-300 font-black">
+                Verification Required
+              </strong>
+              <p className="text-[10px] text-amber-200 leading-relaxed">{transaction.policyMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Fees Summary */}
         <div className="space-y-3 bg-white/5 border border-white/10 rounded-2xl p-5">

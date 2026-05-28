@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { amountSchema, isStellarAddress, validateAmountPrecision } from '@ancore/ui-kit';
 import { mapRpcStatus, isTerminalStatus } from '@/utils/transaction-status';
 import { validateTransferNote, truncateTransferNote } from '@/utils/note-validation';
+import { validateTransferPolicy } from '@ancore/types';
 
 export type SendStep = 'form' | 'review' | 'confirm' | 'status';
 export type TxStatus = 'idle' | 'pending' | 'confirmed' | 'failed';
+export type TransferPolicyAction = 'allow' | 'step_up' | 'block';
 
 export interface SendFormValues {
   to: string;
@@ -22,6 +24,8 @@ export interface SendTransactionDraft extends SendFormValues {
   fee: FeeEstimate;
   total: string;
   truncatedNote?: string;
+  policyAction?: TransferPolicyAction;
+  policyMessage?: string;
 }
 
 export interface SendService {
@@ -38,6 +42,9 @@ export interface UseSendTransactionOptions {
   assetDecimals?: number;
   service?: SendService;
   pollIntervalMs?: number;
+  dailyTransferLimit?: number;
+  transferStepUpThreshold?: number;
+  todayTransferTotal?: number;
 }
 
 export interface ValidationErrors {
@@ -46,10 +53,13 @@ export interface ValidationErrors {
   note?: string;
   password?: string;
   simulation?: string;
+  policy?: string;
 }
 
 const DEFAULT_BALANCE = 250;
 const DEFAULT_POLL_MS = 1000;
+const DEFAULT_DAILY_LIMIT = 1000;
+const DEFAULT_STEP_UP_THRESHOLD = 250;
 
 function createDefaultService(): SendService {
   return {
@@ -107,6 +117,9 @@ export function useSendTransaction(options: UseSendTransactionOptions = {}) {
   const balance = options.balance ?? DEFAULT_BALANCE;
   const assetDecimals = options.assetDecimals ?? 7;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_MS;
+  const dailyTransferLimit = options.dailyTransferLimit ?? DEFAULT_DAILY_LIMIT;
+  const transferStepUpThreshold = options.transferStepUpThreshold ?? DEFAULT_STEP_UP_THRESHOLD;
+  const todayTransferTotal = options.todayTransferTotal ?? 0;
   const service = useMemo(() => options.service ?? createDefaultService(), [options.service]);
 
   const [step, setStep] = useState<SendStep>('form');
@@ -135,10 +148,22 @@ export function useSendTransaction(options: UseSendTransactionOptions = {}) {
         note: values.note ? validateTransferNote(values.note) : undefined,
       };
 
+      // Check transfer policy
+      const numeric = Number(values.amount);
+      if (!nextErrors.amount && Number.isFinite(numeric) && numeric > 0) {
+        const policyResult = validateTransferPolicy(numeric, todayTransferTotal, {
+          dailyLimit: dailyTransferLimit,
+          stepUpThreshold: transferStepUpThreshold,
+        });
+        if (policyResult.action === 'block') {
+          nextErrors.policy = policyResult.message;
+        }
+      }
+
       setErrors(nextErrors);
-      return !nextErrors.to && !nextErrors.amount && !nextErrors.note;
+      return !nextErrors.to && !nextErrors.amount && !nextErrors.note && !nextErrors.policy;
     },
-    [balance, assetDecimals]
+    [balance, assetDecimals, dailyTransferLimit, transferStepUpThreshold, todayTransferTotal]
   );
 
   const goToReview = useCallback(
@@ -155,8 +180,22 @@ export function useSendTransaction(options: UseSendTransactionOptions = {}) {
         const total = (Number(values.amount) + Number(estimatedFee.totalFee)).toFixed(7);
         const truncatedNote = values.note ? truncateTransferNote(values.note) : undefined;
 
+        // Determine policy action
+        const numeric = Number(values.amount);
+        const policyResult = validateTransferPolicy(numeric, todayTransferTotal, {
+          dailyLimit: dailyTransferLimit,
+          stepUpThreshold: transferStepUpThreshold,
+        });
+
         setFee(estimatedFee);
-        setTx({ ...values, fee: estimatedFee, total, truncatedNote });
+        setTx({
+          ...values,
+          fee: estimatedFee,
+          total,
+          truncatedNote,
+          policyAction: policyResult.action,
+          policyMessage: policyResult.message,
+        });
         setStep('review');
         return true;
       } catch (error) {
@@ -168,7 +207,7 @@ export function useSendTransaction(options: UseSendTransactionOptions = {}) {
         setSubmitting(false);
       }
     },
-    [service, validateForm]
+    [service, validateForm, todayTransferTotal, dailyTransferLimit, transferStepUpThreshold]
   );
 
   const requestConfirm = useCallback(() => {
