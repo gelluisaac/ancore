@@ -32,6 +32,21 @@ export interface FiatFormatOptions {
   maximumFractionDigits?: number;
 }
 
+function resolveSupportedLocale(locale: string | string[]): string | string[] {
+  try {
+    const requestedLocales = Array.isArray(locale) ? locale : [locale];
+    const supportedLocales = Intl.NumberFormat.supportedLocalesOf(requestedLocales);
+
+    if (supportedLocales.length > 0) {
+      return Array.isArray(locale) ? supportedLocales : supportedLocales[0];
+    }
+  } catch {
+    // Fall through to the stable fallback below.
+  }
+
+  return 'en-US';
+}
+
 /**
  * Formats a numeric amount as a fiat currency string.
  *
@@ -55,7 +70,7 @@ export function formatFiatAmount(amount: number, options: FiatFormatOptions = {}
   } = options;
 
   try {
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(resolveSupportedLocale(locale), {
       style: 'currency',
       currency,
       minimumFractionDigits,
