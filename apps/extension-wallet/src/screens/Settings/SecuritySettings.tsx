@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AlertTriangle, Eye, EyeOff, Check, Copy } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, Check, Copy, Monitor, X } from 'lucide-react';
 import { Button, Input } from '@ancore/ui-kit';
 import {
   VaultExportError,
@@ -8,8 +8,16 @@ import {
 } from '../../security/vault-export';
 import { useTransferPolicy } from '../../hooks/useTransferPolicy';
 import { ScreenHeader } from './NetworkSettings';
+import { useDeviceSessionsStore, type DeviceSession } from '../../stores/deviceSessions';
 
-type SecurityView = 'menu' | 'change-password' | 'auto-lock' | 'export-key' | 'export-mnemonic' | 'transfer-limits';
+type SecurityView =
+  | 'menu'
+  | 'change-password'
+  | 'auto-lock'
+  | 'export-key'
+  | 'export-mnemonic'
+  | 'transfer-limits'
+  | 'active-sessions';
 
 interface SecuritySettingsProps {
   autoLockTimeout: number;
@@ -283,6 +291,7 @@ function TransferLimitsView({ onDone }: { onDone: () => void }) {
   );
 }
 
+function ExportWarningView({
   exportKind,
   warningText,
   requirePassword,
@@ -327,9 +336,7 @@ function TransferLimitsView({ onDone }: { onDone: () => void }) {
     } catch (revealError) {
       setSecret(null);
       setError(
-        revealError instanceof VaultExportError
-          ? revealError.message
-          : 'Unable to reveal secret.'
+        revealError instanceof VaultExportError ? revealError.message : 'Unable to reveal secret.'
       );
     } finally {
       setPassword('');
@@ -425,6 +432,83 @@ function TransferLimitsView({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ── Active Sessions ──────────────────────────────────────────────────────────
+
+function ActiveSessionsView({ onDone }: { onDone: () => void }) {
+  const { devices, alertDeviceId, revokeDevice, dismissAlert } = useDeviceSessionsStore();
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {alertDeviceId && (
+        <div
+          data-testid="new-device-alert"
+          className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
+          <p className="flex-1 text-xs text-yellow-700 dark:text-yellow-400 leading-relaxed">
+            A new device signed in to your wallet. Review below and revoke if you don&apos;t
+            recognise it.
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss alert"
+            onClick={dismissAlert}
+            className="shrink-0 rounded p-0.5 hover:bg-yellow-500/20 transition-colors"
+          >
+            <X className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+          </button>
+        </div>
+      )}
+
+      {devices.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+          <Monitor className="h-10 w-10 opacity-30" />
+          <p className="text-sm">No active sessions</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+          {devices.map((device: DeviceSession) => (
+            <div key={device.id} className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {device.deviceName}
+                    {device.isCurrent && (
+                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        (this device)
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {device.browser} · {device.os}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                    Last seen {new Date(device.lastSeenAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={device.isCurrent}
+                onClick={() => revokeDevice(device.id)}
+                className="ml-3 shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 disabled:opacity-40"
+              >
+                Revoke
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button variant="outline" className="w-full mt-2" onClick={onDone}>
+        Done
+      </Button>
+    </div>
+  );
+}
+
 // ── SecuritySettings root ────────────────────────────────────────────────────
 
 export function SecuritySettings({
@@ -443,6 +527,7 @@ export function SecuritySettings({
     'export-key': 'Export Private Key',
     'export-mnemonic': 'Export Recovery Phrase',
     'transfer-limits': 'Transfer Limits',
+    'active-sessions': 'Active Sessions',
   };
 
   function handleBack() {
@@ -491,6 +576,7 @@ export function SecuritySettings({
           onCancel={() => setView('menu')}
         />
       )}
+      {view === 'active-sessions' && <ActiveSessionsView onDone={() => setView('menu')} />}
     </div>
   );
 }
@@ -512,6 +598,11 @@ function SecurityMenu({
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+        <MenuItem
+          label="Active Sessions"
+          description="View and revoke trusted devices"
+          onClick={() => onNavigate('active-sessions')}
+        />
         <MenuItem
           label="Change Password"
           description="Update your wallet password"

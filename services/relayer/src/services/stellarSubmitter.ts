@@ -6,6 +6,7 @@ import type { TransactionSubmitterContract, TransactionSubmissionResult } from '
 const NETWORK_PASSPHRASES: Record<Network, string> = {
   testnet: 'Test SDF Network ; September 2015',
   mainnet: 'Public Global Stellar Network ; September 2015',
+  futurenet: 'Test SDF Future Network ; October 2022',
   local: 'Standalone Network ; February 2017',
 };
 
@@ -23,11 +24,16 @@ export class StellarTransactionSubmitter implements TransactionSubmitterContract
 
   constructor(config: StellarSubmitterConfig, client?: StellarClient) {
     this.networkPassphrase = config.networkPassphrase ?? NETWORK_PASSPHRASES[config.network];
-    this.client = client ?? new StellarClient({ network: config.network, networkPassphrase: this.networkPassphrase });
+    this.client =
+      client ??
+      new StellarClient({ network: config.network, networkPassphrase: this.networkPassphrase });
   }
 
   async submitSignedTransaction(signedXdr: string): Promise<TransactionSubmissionResult> {
-    const transaction = TransactionBuilder.fromXDR(signedXdr, this.networkPassphrase) as Transaction;
+    const transaction = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.networkPassphrase
+    ) as Transaction;
     const response = await this.client.submitTransaction(transaction);
 
     return {
@@ -44,7 +50,7 @@ export class StellarTransactionSubmitter implements TransactionSubmitterContract
 }
 
 export function resolveStellarNetwork(value: string | undefined): Network {
-  if (value === 'mainnet' || value === 'local' || value === 'testnet') {
+  if (value === 'mainnet' || value === 'local' || value === 'testnet' || value === 'futurenet') {
     return value;
   }
   return 'testnet';

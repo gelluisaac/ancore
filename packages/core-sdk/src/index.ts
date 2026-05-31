@@ -22,7 +22,15 @@ export { AncoreClient, type AncoreClientOptions } from './ancore-client';
 // Session key helpers
 export { addSessionKey, type AddSessionKeyParams } from './add-session-key';
 export { revokeSessionKey, type RevokeSessionKeyParams } from './revoke-session-key';
-export { permissionToLabel, permissionsToLabels, formatPermissions } from './session-key-utils';
+export {
+  permissionToLabel,
+  permissionsToLabels,
+  formatPermissions,
+  isSessionKeyActive,
+  getSessionKeyInactiveReason,
+  type IsSessionKeyActiveOptions,
+  type SessionKeyInactiveReason,
+} from './session-key-utils';
 
 // Payment
 export {
@@ -81,6 +89,22 @@ export {
   type RetryPresetName,
   getRetryPreset,
 } from './retry-presets';
+
+// Scheduled transfers
+export {
+  HttpSchedulerClient,
+  createSchedulerClient,
+  getSchedulerClient,
+  resetSchedulerClientForTests,
+  resolveRelayerBaseUrl,
+  buildDefaultRelayPayload,
+  toIsoStartAt,
+  defaultScheduleStartAt,
+  SCHEDULE_FREQUENCY_OPTIONS,
+  DEMO_ACCOUNT_ADDRESS,
+  type SchedulerClient,
+  type SchedulerClientOptions,
+} from './scheduler-client';
 
 export {
   mapExecuteWithSessionKeyError,

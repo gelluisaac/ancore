@@ -13,6 +13,7 @@ import type {
   HealthResponse,
   DependencyStatus,
 } from '../types';
+import { mapSimulationError } from './mapSimulationError';
 import { mapSubmissionError } from './mapSubmissionError';
 
 const MOCK_GAS_USED = 21_000;
@@ -25,9 +26,7 @@ function mockTxId(): string {
 }
 
 function isMockSubmissionEnabled(options?: RelayServiceOptions): boolean {
-  return (
-    options?.useMockSubmission === true || process.env.RELAYER_USE_MOCK_SUBMISSION === 'true'
-  );
+  return options?.useMockSubmission === true || process.env.RELAYER_USE_MOCK_SUBMISSION === 'true';
 }
 
 /**
@@ -130,7 +129,7 @@ export class RelayService implements RelayServiceContract {
     } catch (error) {
       return {
         success: false,
-        error: mapSubmissionError(error),
+        error: mapSimulationError(error) ?? mapSubmissionError(error),
         gasUsed: 0,
       };
     }
@@ -177,7 +176,11 @@ export class RelayService implements RelayServiceContract {
     try {
       const result = await this.transactionSubmitter.isHealthy();
       if (!result.healthy) {
-        return { status: 'degraded', message: 'Soroban RPC unreachable', latencyMs: result.latencyMs };
+        return {
+          status: 'degraded',
+          message: 'Soroban RPC unreachable',
+          latencyMs: result.latencyMs,
+        };
       }
       return { status: 'ok', latencyMs: result.latencyMs };
     } catch {

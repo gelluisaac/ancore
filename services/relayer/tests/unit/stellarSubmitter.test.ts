@@ -1,6 +1,16 @@
-import { TransactionBuilder, Keypair, Networks, Operation, Asset, Account } from '@stellar/stellar-sdk';
+import {
+  TransactionBuilder,
+  Keypair,
+  Networks,
+  Operation,
+  Asset,
+  Account,
+} from '@stellar/stellar-sdk';
 import { StellarClient, NetworkError } from '@ancore/stellar';
-import { StellarTransactionSubmitter } from '../../src/services/stellarSubmitter';
+import {
+  StellarTransactionSubmitter,
+  resolveStellarNetwork,
+} from '../../src/services/stellarSubmitter';
 
 jest.mock('@ancore/stellar', () => {
   const actual = jest.requireActual('@ancore/stellar');
@@ -79,5 +89,27 @@ describe('StellarTransactionSubmitter', () => {
 
     expect(result.healthy).toBe(true);
     expect(typeof result.latencyMs).toBe('number');
+  });
+
+  it('uses the Futurenet passphrase when constructing the Stellar client', () => {
+    MockStellarClient.mockImplementation(
+      () =>
+        ({
+          submitTransaction: jest.fn(),
+          isHealthy: jest.fn(),
+        }) as unknown as StellarClient
+    );
+
+    new StellarTransactionSubmitter({ network: 'futurenet' });
+
+    expect(MockStellarClient).toHaveBeenCalledWith({
+      network: 'futurenet',
+      networkPassphrase: 'Test SDF Future Network ; October 2022',
+    });
+  });
+
+  it('resolves futurenet from environment input', () => {
+    expect(resolveStellarNetwork('futurenet')).toBe('futurenet');
+    expect(resolveStellarNetwork('unknown')).toBe('testnet');
   });
 });
