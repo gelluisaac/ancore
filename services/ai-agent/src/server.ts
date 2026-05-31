@@ -16,6 +16,9 @@ export function createApp(): Express {
 
   app.use(express.json());
 
+  const { requestLogger } = require('./middleware/request-logger');
+  app.use(requestLogger);
+
   // ── Health endpoint ────────────────────────────────────────────────────────
   // Used by the Docker HEALTHCHECK and load-balancer probes.
   // Returns HTTP 200 while the process is running.
@@ -35,7 +38,7 @@ export function createApp(): Express {
   app.post('/v1/intents/validate', (req: Request, res: Response) => {
     const parsed = intentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.flatten() });
+      return res.status(422).json({ issues: parsed.error.issues });
     }
     return res.status(200).json({ valid: true, intent: parsed.data });
   });
