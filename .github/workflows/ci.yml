@@ -106,7 +106,7 @@ jobs:
         run: pnpm build
 
       - name: Run tests
-        run: pnpm test --concurrency=1
+        run: pnpm turbo run test --concurrency=1
 
       - name: Check coverage gates
         run: node scripts/coverage-gate.js
