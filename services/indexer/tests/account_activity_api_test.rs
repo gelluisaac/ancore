@@ -1,13 +1,19 @@
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     http::{Request, StatusCode},
     Router,
 };
+use chrono::TimeZone;
+use http_body_util::BodyExt;
 use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
 use ancore_indexer::{api::account_activity, repositories::account_activity::ActivityRecord};
+
+async fn response_body_bytes(response: axum::response::Response) -> Bytes {
+    response.into_body().collect().await.unwrap().to_bytes()
+}
 
 async fn setup_test_app() -> (Router, PgPool) {
     dotenvy::dotenv().ok();
@@ -79,7 +85,9 @@ async fn integration_test_list_activity_happy_path() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     // Seed DB with activity records
     for i in 0..5 {
@@ -105,7 +113,7 @@ async fn integration_test_list_activity_happy_path() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert!(json["data"].is_array());
@@ -121,7 +129,9 @@ async fn integration_test_list_with_all_filters() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     // Seed mixed records
     insert_test_activity(&pool, account_id, "payment", 100, base_time).await;
@@ -154,7 +164,7 @@ async fn integration_test_list_with_all_filters() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["data"].as_array().unwrap().len(), 2);
@@ -166,7 +176,9 @@ async fn integration_test_pagination_forward() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     // Seed 25 records
     for i in 0..25 {
@@ -182,6 +194,7 @@ async fn integration_test_pagination_forward() {
 
     // Page 1
     let response1 = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri(&format!(
@@ -195,7 +208,7 @@ async fn integration_test_pagination_forward() {
         .unwrap();
 
     assert_eq!(response1.status(), StatusCode::OK);
-    let body1 = hyper::body::to_bytes(response1.into_body()).await.unwrap();
+    let body1 = response_body_bytes(response1).await;
     let json1: serde_json::Value = serde_json::from_slice(&body1).unwrap();
 
     assert_eq!(json1["data"].as_array().unwrap().len(), 10);
@@ -213,7 +226,7 @@ async fn integration_test_pagination_forward() {
         .unwrap();
 
     assert_eq!(response2.status(), StatusCode::OK);
-    let body2 = hyper::body::to_bytes(response2.into_body()).await.unwrap();
+    let body2 = response_body_bytes(response2).await;
     let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
 
     assert_eq!(json2["data"].as_array().unwrap().len(), 10);
@@ -241,7 +254,7 @@ async fn integration_test_invalid_cursor_returns_400() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["error"], "invalid_cursor");
@@ -269,7 +282,7 @@ async fn integration_test_both_cursors_returns_400() {
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["error"], "invalid_filter");
@@ -281,7 +294,9 @@ async fn integration_test_invalid_limit_clamped() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     // Seed 150 records
     for i in 0..150 {
@@ -310,7 +325,7 @@ async fn integration_test_invalid_limit_clamped() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     // Should be clamped to MAX_LIMIT (100)
@@ -323,7 +338,9 @@ async fn integration_test_get_by_id_found() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     let id = insert_test_activity(&pool, account_id, "payment", 1000, base_time).await;
 
@@ -339,7 +356,7 @@ async fn integration_test_get_by_id_found() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["data"]["id"], id.to_string());
@@ -389,7 +406,7 @@ async fn integration_test_account_not_found_returns_empty() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["data"].as_array().unwrap().len(), 0);
@@ -401,7 +418,9 @@ async fn integration_test_get_types() {
     let (app, pool) = setup_test_app().await;
 
     let account_id = "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    let base_time = chrono::Utc::with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+    let base_time = chrono::Utc
+        .with_ymd_and_hms(2024, 1, 15, 10, 30, 0)
+        .unwrap();
 
     // Seed records with multiple types
     insert_test_activity(&pool, account_id, "payment", 1000, base_time).await;
@@ -434,7 +453,7 @@ async fn integration_test_get_types() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+    let body = response_body_bytes(response).await;
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["data"].as_array().unwrap().len(), 3);

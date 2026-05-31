@@ -404,6 +404,9 @@ jobs:
       - name: Install relayer dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build relayer workspace dependencies
+        run: pnpm --filter @ancore/relayer... build
+
       - name: Run log-redaction grep check
         # Fails CI (exit 1) if any log call site passes a raw sensitive field
         # without going through a redact*() helper. See:

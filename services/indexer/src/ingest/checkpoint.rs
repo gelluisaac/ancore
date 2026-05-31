@@ -456,8 +456,8 @@ mod tests {
                 raw_event(6), // ahead — must process
             ]);
             let sink = MemorySink::default();
-            let mut worker =
-                IngestWorker::new(WorkerConfig::default(), source, sink).with_checkpoint(restored);
+            let mut worker = IngestWorker::new(WorkerConfig::default(), source, sink)
+                .with_initial_checkpoint(restored);
 
             let stats = worker.run_once().await.unwrap();
 
@@ -477,8 +477,8 @@ mod tests {
 
             let source = VecSource::new(vec![raw_event(1), raw_event(2), raw_event(3)]);
             let sink = MemorySink::default();
-            let mut worker =
-                IngestWorker::new(WorkerConfig::default(), source, sink).with_checkpoint(cp);
+            let mut worker = IngestWorker::new(WorkerConfig::default(), source, sink)
+                .with_initial_checkpoint(cp);
 
             let stats = worker.run_once().await.unwrap();
 
@@ -496,8 +496,8 @@ mod tests {
 
             let source = VecSource::new(vec![raw_event(50), raw_event(99)]);
             let sink = MemorySink::default();
-            let mut worker =
-                IngestWorker::new(WorkerConfig::default(), source, sink).with_checkpoint(restored);
+            let mut worker = IngestWorker::new(WorkerConfig::default(), source, sink)
+                .with_initial_checkpoint(restored);
 
             worker.run_once().await.unwrap();
 
