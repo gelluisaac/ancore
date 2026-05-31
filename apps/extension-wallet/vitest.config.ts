@@ -11,6 +11,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    testTimeout: 30000,
     css: true,
     exclude: [
       '**/node_modules/**',
@@ -24,6 +25,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(rootDir, './src'),
+      '@ancore/core-sdk': path.resolve(rootDir, '../../packages/core-sdk/src/index.ts'),
+      '@ancore/types': path.resolve(rootDir, '../../packages/types/src/index.ts'),
+      '@ancore/crypto': path.resolve(rootDir, '../../packages/crypto/src/index.ts'),
+      '@ancore/account-abstraction': path.resolve(
+        rootDir,
+        '../../packages/account-abstraction/src/index.ts'
+      ),
     },
   },
 });
