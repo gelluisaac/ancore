@@ -60,6 +60,17 @@ We are committed to providing a welcoming and inclusive environment. Please:
    pnpm test
    ```
 
+## VS Code Workspace Recommendations
+
+If you use Visual Studio Code, the repository includes a workspace recommendations file and an optional devcontainer for one-click setup.
+
+- Recommended extensions are defined in `.vscode/extensions.json`
+- Devcontainer points to Node 20, pnpm, and Rust support in `.devcontainer/devcontainer.json`
+- VS Code will also enable `editor.formatOnSave` by default for contributors using the devcontainer
+- Optional Soroban/Rust target setup can be completed after container creation with `rustup target add wasm32-unknown-unknown`
+
+To use it, open the repository in VS Code and choose **Reopen in Container** from the Command Palette.
+
 ## Development Workflow
 
 ### Branch Naming
