@@ -136,6 +136,45 @@ pnpm contracts:build
 pnpm contracts:test
 ```
 
+### Local Services Stack
+
+Run the full service stack (postgres, indexer, relayer) locally with Docker Compose:
+
+```bash
+# Start all services
+docker compose -f docker-compose.dev.yml up
+
+# Run indexer migrations
+docker compose -f docker-compose.dev.yml exec indexer \
+  psql $DATABASE_URL -f migrations/001_create_account_activity_table.sql
+
+# Verify services
+curl http://localhost:3000/health  # Indexer
+curl http://localhost:3001/relay/status  # Relayer
+```
+
+See [Local Services Guide](docs/development/local-services.md) for detailed instructions.
+
+### Development Shortcuts
+
+Common per-package dev & test shortcuts (root `package.json` scripts):
+
+- `dev:extension`: Start the extension wallet dev server (`@ancore/extension-wallet`).
+- `dev:dashboard`: Start the web dashboard dev server (`@ancore/web-dashboard`).
+- `dev:mobile`: Start the mobile wallet dev workflow (`@ancore/mobile-wallet`).
+- `test:extension`: Run the extension-wallet test suite (`@ancore/extension-wallet`).
+- `test:ui`: Run the UI kit tests (`@ancore/ui-kit`).
+
+Use these from the repo root to scope commands with `pnpm --filter`:
+
+```bash
+# Start the extension dev server from the repo root
+pnpm dev:extension
+
+# Run UI tests
+pnpm test:ui
+```
+
 ### Updating WASM Size Budgets
 
 WASM contract sizes are monitored in CI to prevent regression. The budget for each contract is defined in `contracts/budgets/wasm-budgets.json`.
