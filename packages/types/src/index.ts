@@ -39,3 +39,4 @@ export * from './contacts';
 export * from './scheduled-transfer';
 export * from './statement';
 export * from './handle-resolution';
+export * from './invoice';
