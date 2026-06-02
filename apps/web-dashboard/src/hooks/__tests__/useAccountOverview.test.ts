@@ -1,6 +1,10 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useAccountOverview } from '../useAccountOverview';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  AccountNotFoundError,
+  HorizonUnavailableError,
+  useAccountOverview,
+} from '../useAccountOverview';
 
 describe('useAccountOverview', () => {
   const mockPublicKey = 'GBVFLP5J7XLTQBJX5QZW6LNRUZPGZRG7GMKQMVYOMKCFQG4N7VJ7RCV';
@@ -15,25 +19,16 @@ describe('useAccountOverview', () => {
 
   it('fetches account data successfully', async () => {
     const mockAccountData = {
-      id: 'GBVFLP5J7XLTQBJX5QZW6LNRUZPGZRG7GMKQMVYOMKCFQG4N7VJ7RCV',
-      account_id: 'GBVFLP5J7XLTQBJX5QZW6LNRUZPGZRG7GMKQMVYOMKCFQG4N7VJ7RCV',
-      sequence: '123456789',
-      subentry_count: 0,
-      last_modified_ledger: 50000,
-      last_modified_time: '2024-01-01T00:00:00Z',
-      balances: [
-        {
-          balance: '100.0000000',
-          asset_type: 'native',
-        },
-      ],
+      balance: 100,
+      nonce: 123456789,
+      status: 'active',
     };
 
     (global.fetch as any).mockResolvedValue(
       new Response(JSON.stringify(mockAccountData), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
-      }),
+      })
     );
 
     const { result } = renderHook(() => useAccountOverview(mockPublicKey));
@@ -59,12 +54,7 @@ describe('useAccountOverview', () => {
   });
 
   it('handles Horizon API error', async () => {
-    (global.fetch as any).mockResolvedValue(
-      new Response('Account not found', {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    (global.fetch as any).mockResolvedValue(new Response(null, { status: 404 }));
 
     const { result } = renderHook(() => useAccountOverview(mockPublicKey));
 
@@ -72,39 +62,100 @@ describe('useAccountOverview', () => {
 
     expect(result.current.data).toBeNull();
     expect(result.current.error).not.toBeNull();
-    expect(result.current.error?.message).toContain('Account not found');
+    expect(result.current.error).toBeInstanceOf(AccountNotFoundError);
   });
 
   it('allows refetch', async () => {
-    const mockAccountData = {
-      id: mockPublicKey,
-      account_id: mockPublicKey,
-      sequence: '100',
-      subentry_count: 0,
-      last_modified_ledger: 50000,
-      last_modified_time: '2024-01-01T00:00:00Z',
-      balances: [
-        {
-          balance: '50.0000000',
-          asset_type: 'native',
-        },
-      ],
-    };
-
-    (global.fetch as any).mockResolvedValue(
-      new Response(JSON.stringify(mockAccountData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            balance: 50,
+            nonce: 100,
+            status: 'active',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            balance: 50,
+            nonce: 100,
+            status: 'active',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
 
     const { result } = renderHook(() => useAccountOverview(mockPublicKey));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data?.balance).toBe(50);
 
-    await result.current.refetch();
+    await act(async () => {
+      await result.current.refetch();
+    });
 
+    await waitFor(() => expect(result.current.data?.balance).toBe(50));
     expect(result.current.data?.balance).toBe(50);
+  });
+
+  it('maps 404 responses to account-not-found errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }));
+
+    const { result } = renderHook(() => useAccountOverview('GB...'));
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(AccountNotFoundError));
+  });
+
+  it('maps 500 responses to horizon-unavailable errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }));
+
+    const { result } = renderHook(() => useAccountOverview('GB...'));
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(HorizonUnavailableError));
+  });
+
+  it('recovers successfully after retry', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 500 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            balance: 9,
+            nonce: 7,
+            status: 'inactive',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { result } = renderHook(() => useAccountOverview('GB...'));
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(HorizonUnavailableError));
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.error).toBeNull());
+    expect(result.current.data).toEqual({
+      balance: 9,
+      nonce: 7,
+      status: 'inactive',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

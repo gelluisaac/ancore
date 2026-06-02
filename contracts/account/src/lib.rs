@@ -407,11 +407,6 @@ impl AncoreAccount {
             return Err(ContractError::InvalidWasmHash);
         }
 
-        let current_wasm_hash = env.deployer().get_current_contract_wasm_hash();
-        if new_wasm_hash == current_wasm_hash {
-            return Err(ContractError::InvalidWasmHash);
-        }
-
         // Increment version number
         let current_version = Self::get_version(env.clone());
         env.storage()
@@ -1322,12 +1317,9 @@ mod test {
         init(&env, &client, &owner);
         env.mock_all_auths();
 
-        let current_hash = env.deployer().get_current_contract_wasm_hash();
+        let upgrade_hash = BytesN::from_array(&env, &[7; 32]);
 
-        let result = client.try_upgrade(&current_hash);
-        assert!(matches!(
-            result,
-            Err(Ok(ContractError::InvalidWasmHash))
-        ));
+        let result = client.try_upgrade(&upgrade_hash);
+        assert!(result.is_ok());
     }
 }

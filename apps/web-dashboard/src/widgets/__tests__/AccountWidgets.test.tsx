@@ -15,11 +15,29 @@ vi.mock('lucide-react', () => ({
 
 // Mock @ancore/ui-kit
 vi.mock('@ancore/ui-kit', () => ({
-  Card: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardHeader: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardTitle: ({ children, className }: any) => <div className={className}>{children}</div>,
-  CardContent: ({ children, className }: any) => <div className={className}>{children}</div>,
-  Skeleton: ({ className }: any) => <div className={className} aria-hidden="true" />,
+  Card: ({ children, className, ...props }: any) => (
+    <div className={className} {...props}>
+      {children}
+    </div>
+  ),
+  CardHeader: ({ children, className, ...props }: any) => (
+    <div className={className} {...props}>
+      {children}
+    </div>
+  ),
+  CardTitle: ({ children, className, ...props }: any) => (
+    <div className={className} {...props}>
+      {children}
+    </div>
+  ),
+  CardContent: ({ children, className, ...props }: any) => (
+    <div className={className} {...props}>
+      {children}
+    </div>
+  ),
+  Skeleton: ({ className, ...props }: any) => (
+    <div className={className} aria-hidden="true" {...props} />
+  ),
 }));
 
 describe('Account Overview Widgets', () => {
@@ -107,7 +125,7 @@ import {
   MultiSigSkeleton,
   InvoiceListSkeleton,
   DashboardPageSkeleton,
-} from '../../components/skeletons/LoadingSkeletons';
+} from '../../components/LoadingSkeletons';
 
 describe('Loading Skeletons', () => {
   it('AccountOverviewSkeleton renders with default testid', () => {
